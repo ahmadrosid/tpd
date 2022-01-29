@@ -17,11 +17,11 @@ enum Commands {
     /// Store custom word to dictionary
     Words {
         /// English word
-        #[clap(short, long)]
-        word: Option<String>,
+        #[clap(short, default_value_t = String::from(""))]
+        word: String,
 
         /// Display my dictionary
-        #[clap(short, long)]
+        #[clap(short)]
         d: bool,
     },
 }
@@ -64,9 +64,13 @@ fn main() {
                             println!("Unable to read dictionary");
                         }
                     } else {
-                        write!(file, "{}\n", word.as_deref().unwrap());
-                        println!("Success store '{}' to dictionary!", word.as_deref().unwrap());
-
+                        if word.len() >= 1 {
+                            write!(file, "{}\n", word);
+                            println!("Success store '{}' to dictionary!", word);
+                        } else {
+                            let mut app = Args::into_app();
+                            app.print_help();
+                        }
                     }
                 }
                 None => {}

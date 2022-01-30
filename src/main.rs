@@ -126,17 +126,19 @@ pub fn detect_typo(file_path: String) {
 }
 
 pub fn scan_words(source: &str, words: &Vec<&str>) {
-    let mut index = 0;
+    let mut line_number = 0;
     let file = std::env::args().collect::<Vec<_>>();
     for line in source.lines().into_iter() {
-        index += 1;
+        line_number += 1;
+        let mut column = 0;
         for child in line.split(" ").into_iter() {
             let target = child.to_lowercase();
+            column += child.len() +  1;
             if !target.chars().all(char::accept) {
                 continue;
             }
             if search(&words.to_vec(), &target, words.len()).is_none() {
-                println!("\"{}\" => {}:{}", child, file[1], index);
+                println!("\"{}\" => {}:{}:{}", child, file[1], line_number, column);
             }
         }
     }

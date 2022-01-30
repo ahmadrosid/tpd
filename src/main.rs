@@ -16,9 +16,9 @@ struct Args {
 enum Commands {
     /// Store custom word to dictionary
     Words {
-        /// English word
+        /// Add english word
         #[clap(short, default_value_t = String::from(""))]
-        word: String,
+        add: String,
 
         /// Display my dictionary
         #[clap(short)]
@@ -42,7 +42,7 @@ impl CharExt for char {
 fn main() {
     let args = Args::parse();
     match &args.command {
-        Some(Commands::Words { word, d }) => {
+        Some(Commands::Words { add, d }) => {
             match home::home_dir() {
                 Some(mut path) => {
                     path.push(".config");
@@ -64,9 +64,9 @@ fn main() {
                             println!("Unable to read dictionary");
                         }
                     } else {
-                        if word.len() >= 1 {
-                            write!(file, "{}\n", word);
-                            println!("Success store '{}' to dictionary!", word);
+                        if add.len() >= 1 {
+                            write!(file, "{}\n", add);
+                            println!("Success store '{}' to dictionary!", add);
                         } else {
                             let mut app = Args::into_app();
                             app.print_help();

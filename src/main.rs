@@ -98,7 +98,7 @@ fn main() {
 }
 
 pub fn detect_typo(file_path: String, show_fix: bool) {
-    match std::fs::read_to_string(file_path) {
+    match std::fs::read_to_string(file_path.clone()) {
         Ok(source) => {
             let val = include_str!("words_sort.txt").to_string();
             let mut words: Vec<&str> = val.split("\n").collect();
@@ -114,7 +114,7 @@ pub fn detect_typo(file_path: String, show_fix: bool) {
                             let dictionaries = dictionary.split("\n").collect::<Vec<_>>();
                             words.append(&mut dictionaries.to_vec());
                             words.sort();
-                            scan_words(&*source, &words, show_fix);
+                            scan_words(&*source, &words, show_fix, &file_path.clone());
                             std::process::exit(0);
                         }
                         _ => {}
@@ -123,7 +123,7 @@ pub fn detect_typo(file_path: String, show_fix: bool) {
                 None => {}
             }
 
-            scan_words(&*source, &words, show_fix);
+            scan_words(&*source, &words, show_fix, &file_path);
         }
         Err(_) => {
             println!("File not found!");
@@ -132,9 +132,8 @@ pub fn detect_typo(file_path: String, show_fix: bool) {
     }
 }
 
-pub fn scan_words(source: &str, words: &Vec<&str>, show_fix: bool) {
+pub fn scan_words(source: &str, words: &Vec<&str>, show_fix: bool, file_path: &str) {
     let mut line_number = 0;
-    let file = std::env::args().collect::<Vec<_>>();
     for line in source.lines().into_iter() {
         line_number += 1;
         let mut column = 0;
@@ -146,7 +145,7 @@ pub fn scan_words(source: &str, words: &Vec<&str>, show_fix: bool) {
             }
             if search(&words.to_vec(), &target, words.len()).is_none() {
                 if !show_fix {
-                    println!("\"{}\" => {}:{}:{}", child, file[1], line_number, column);
+                    println!("\"{}\" => {}:{}:{}", child, file_path, line_number, column);
                     continue;
                 }
 
@@ -154,17 +153,17 @@ pub fn scan_words(source: &str, words: &Vec<&str>, show_fix: bool) {
                     Some(result) => {
                         println!(
                             "\"{}\" => {}:{}:{} {}",
-                            child, file[1], line_number, column, result
+                            child, file_path, line_number, column, result
                         )
                     }
                     _ => match search_similar(&words.to_vec(), &target, 2) {
                         Some(result) => {
                             println!(
                                 "\"{}\" => {}:{}:{} {}",
-                                child, file[1], line_number, column, result
+                                child, file_path, line_number, column, result
                             )
                         }
-                        _ => println!("\"{}\" => {}:{}:{}", child, file[1], line_number, column),
+                        _ => println!("\"{}\" => {}:{}:{}", child, file_path, line_number, column),
                     },
                 }
             }
@@ -202,7 +201,9 @@ pub fn search_similar(words: &Vec<&str>, target: &str, score: usize) -> Option<S
     words
         .to_vec()
         .iter()
-        .filter(|item| item.len() >= target.len() && item.len() <= target.len() + distance)
+        .filter(|item| {
+            item.len() >= target.len() - distance && item.len() <= target.len() + distance
+        })
         .for_each(|item| {
             if damerau_levenshtein(*item, &target) == score {
                 result.push_str(*item);

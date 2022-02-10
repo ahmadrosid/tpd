@@ -72,7 +72,7 @@ fn main() {
                         }
                     } else {
                         if word.len() >= 1 {
-                            write!(file, "{}\n", word);
+                            write!(file, "{}\n", word).unwrap();
                             println!("Success store '{}' to dictionary!", word);
                         } else {
                             let mut app = Args::into_app();
@@ -143,56 +143,36 @@ pub fn scan_words(source: &str, words: &Vec<&str>, show_fix: bool, file_path: &s
             if !target.chars().all(char::accept) {
                 continue;
             }
-            if search(&words.to_vec(), &target, words.len()).is_none() {
-                if !show_fix {
-                    println!("\"{}\" => {}:{}:{}", child, file_path, line_number, column);
-                    continue;
-                }
 
-                match search_similar(&words.to_vec(), &target, 1) {
-                    Some(result) => {
-                        println!(
-                            "\"{}\" => {}:{}:{} {}",
-                            child, file_path, line_number, column, result
-                        )
+            match words.binary_search(&&*target) {
+                Ok(_) => {}
+                Err(_) => {
+                    if !show_fix {
+                        println!("\"{}\" => {}:{}:{}", child, file_path, line_number, column);
+                        continue;
                     }
-                    _ => match search_similar(&words.to_vec(), &target, 2) {
+    
+                    match search_similar(&words.to_vec(), &target, 1) {
                         Some(result) => {
                             println!(
                                 "\"{}\" => {}:{}:{} {}",
                                 child, file_path, line_number, column, result
                             )
                         }
-                        _ => println!("\"{}\" => {}:{}:{}", child, file_path, line_number, column),
-                    },
-                }
+                        _ => match search_similar(&words.to_vec(), &target, 2) {
+                            Some(result) => {
+                                println!(
+                                    "\"{}\" => {}:{}:{} {}",
+                                    child, file_path, line_number, column, result
+                                )
+                            }
+                            _ => println!("\"{}\" => {}:{}:{}", child, file_path, line_number, column),
+                        },
+                    }
+                },
             }
         }
     }
-}
-
-pub fn search(a: &Vec<&str>, target_value: &str, len: usize) -> Option<usize> {
-    let mut low: usize = 0;
-    let mut high: usize = len - 1;
-
-    while low <= high {
-        let mid = ((high - low) / 2) + low;
-        let mid_index = mid as usize;
-        let val = a[mid_index];
-
-        if val == target_value {
-            return Some(mid_index);
-        }
-
-        if val < target_value {
-            low = mid + 1;
-        }
-
-        if val > target_value {
-            high = mid - 1;
-        }
-    }
-    None
 }
 
 pub fn search_similar(words: &Vec<&str>, target: &str, score: usize) -> Option<String> {

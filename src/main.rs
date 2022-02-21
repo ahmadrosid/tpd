@@ -13,7 +13,7 @@ struct Args {
 
     /// Suggest fix for typo
     #[clap(long, short)]
-    fix: bool,
+    suggest: bool,
 
     #[clap(subcommand)]
     command: Option<Commands>,
@@ -59,6 +59,7 @@ fn main() {
                     let mut file = std::fs::OpenOptions::new()
                         .write(true)
                         .read(true)
+                        .create(true)
                         .append(true)
                         .open(path)
                         .unwrap();
@@ -89,7 +90,7 @@ fn main() {
     }
 
     match args.file_path.as_deref() {
-        Some(path) => detect_typo(path.to_string(), args.fix),
+        Some(path) => detect_typo(path.to_string(), args.suggest),
         _ => {
             let mut app = Args::into_app();
             app.print_help();
@@ -97,11 +98,11 @@ fn main() {
     }
 }
 
-pub fn detect_typo(file_path: String, show_fix: bool) {
-    match std::fs::read_to_string(file_path.clone()) {
+pub fn detect_typo(file_path: String, show_suggest: bool) {
+    match std::fs::read_to_string(&file_path) {
         Ok(source) => {
-            let val = include_str!("words_sort.txt").to_string();
-            let mut words: Vec<&str> = val.split("\n").collect();
+            let dictionary = include_str!("words_sort.txt").to_string();
+            let mut words: Vec<&str> = dictionary.split("\n").collect();
 
             match home::home_dir() {
                 Some(mut path) => {
@@ -114,7 +115,7 @@ pub fn detect_typo(file_path: String, show_fix: bool) {
                             let dictionaries = dictionary.split("\n").collect::<Vec<_>>();
                             words.append(&mut dictionaries.to_vec());
                             words.sort();
-                            scan_words(&*source, &words, show_fix, &file_path.clone());
+                            scan_words(&*source, &words, show_suggest, &file_path);
                             std::process::exit(0);
                         }
                         _ => {}
@@ -123,7 +124,7 @@ pub fn detect_typo(file_path: String, show_fix: bool) {
                 None => {}
             }
 
-            scan_words(&*source, &words, show_fix, &file_path);
+            scan_words(&*source, &words, show_suggest, &file_path);
         }
         Err(_) => {
             println!("File not found!");
@@ -132,47 +133,67 @@ pub fn detect_typo(file_path: String, show_fix: bool) {
     }
 }
 
-pub fn scan_words(source: &str, words: &Vec<&str>, show_fix: bool, file_path: &str) {
+pub fn scan_words(source: &str, words: &Vec<&str>, show_suggest: bool, file_path: &str) {
     let mut line_number = 0;
     for line in source.lines().into_iter() {
         line_number += 1;
         let mut column = 0;
         for child in line.split(" ").into_iter() {
-            let target = child.to_lowercase();
+            let mut target = child.to_lowercase();
             column += child.len() + 1;
-            if !target.chars().all(char::accept) {
+            target = sanitize(target);
+            if !target.chars().all(char::accept) || target == "" {
                 continue;
             }
 
             match words.binary_search(&&*target) {
                 Ok(_) => {}
                 Err(_) => {
-                    if !show_fix {
-                        println!("\"{}\" => {}:{}:{}", child, file_path, line_number, column);
+                    if !show_suggest {
+                        println!("\x1b[0;31m{}\x1b[m => {}:{}:{}", child, file_path, line_number, column);
                         continue;
                     }
-    
+
                     match search_similar(&words.to_vec(), &target, 1) {
                         Some(result) => {
                             println!(
-                                "\"{}\" => {}:{}:{} {}",
+                                "\x1b[0;31m{}\x1b[m => {}:{}:{} \x1b[0;32m{}\x1b",
                                 child, file_path, line_number, column, result
                             )
                         }
                         _ => match search_similar(&words.to_vec(), &target, 2) {
                             Some(result) => {
                                 println!(
-                                    "\"{}\" => {}:{}:{} {}",
+                                    "\x1b[0;31m{}\x1b[m => {}:{}:{} \x1b[0;32m{}\x1b",
                                     child, file_path, line_number, column, result
                                 )
                             }
-                            _ => println!("\"{}\" => {}:{}:{}", child, file_path, line_number, column),
+                            _ => println!(
+                                "\x1b[0;31m{}\x1b[m => {}:{}:{}",
+                                child, file_path, line_number, column
+                            ),
                         },
                     }
-                },
+                }
             }
         }
     }
+}
+
+pub fn sanitize(word: String) -> String {
+    if word.len() <= 1 {
+        return word;
+    }
+
+    return word
+        .replace("\"", "")
+        .replace("'", "")
+        .replace("!", "")
+        .replace("?", "")
+        .replace(".", "")
+        .replace("“", "")
+        .replace("”", "")
+        .replace(",", "");
 }
 
 pub fn search_similar(words: &Vec<&str>, target: &str, score: usize) -> Option<String> {

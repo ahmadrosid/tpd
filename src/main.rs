@@ -1,8 +1,11 @@
+mod dictionary;
+
 use clap::{IntoApp, Parser, Subcommand};
 use std::cmp::min;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::io::{Read, Write};
+use dictionary::Dictionary;
 
 /// Typo detector for english words
 #[derive(Parser)]
@@ -101,8 +104,7 @@ fn main() {
 pub fn detect_typo(file_path: String, show_suggest: bool) {
     match std::fs::read_to_string(&file_path) {
         Ok(source) => {
-            let dictionary = include_str!("words_sort.txt").to_string();
-            let mut words: Vec<&str> = dictionary.split("\n").collect();
+            let mut words = Dictionary::new();
 
             match home::home_dir() {
                 Some(mut path) => {
@@ -111,10 +113,9 @@ pub fn detect_typo(file_path: String, show_suggest: bool) {
                     path.push("dictionary");
                     match std::fs::read_to_string(path) {
                         Ok(file) => {
-                            let dictionary = file.clone();
-                            let dictionaries = dictionary.split("\n").collect::<Vec<_>>();
-                            words.append(&mut dictionaries.to_vec());
-                            words.sort();
+                            for word in file.split('\n') {
+                                words.add(word.to_string());
+                            }
                             scan_words(&*source, &words, show_suggest, &file_path);
                             std::process::exit(0);
                         }
@@ -133,7 +134,7 @@ pub fn detect_typo(file_path: String, show_suggest: bool) {
     }
 }
 
-pub fn scan_words(source: &str, words: &Vec<&str>, show_suggest: bool, file_path: &str) {
+pub fn scan_words(source: &str, words: &Dictionary, show_suggest: bool, file_path: &str) {
     let mut line_number = 0;
     for line in source.lines().into_iter() {
         line_number += 1;
@@ -146,34 +147,31 @@ pub fn scan_words(source: &str, words: &Vec<&str>, show_suggest: bool, file_path
                 continue;
             }
 
-            match words.binary_search(&&*target) {
-                Ok(_) => {}
-                Err(_) => {
-                    if !show_suggest {
-                        println!("\x1b[0;31m{}\x1b[m => {}:{}:{}", child, file_path, line_number, column);
-                        continue;
-                    }
+            if words.get(&&*target).is_none() {
+                if !show_suggest {
+                    println!("\x1b[0;31m{}\x1b[m => {}:{}:{}", child, file_path, line_number, column);
+                    continue;
+                }
 
-                    match search_similar(&words.to_vec(), &target, 1) {
+                match search_similar(&words.to_vec(), &target, 1) {
+                    Some(result) => {
+                        println!(
+                            "\x1b[0;31m{}\x1b[m => {}:{}:{} \x1b[0;32m{}\x1b",
+                            child, file_path, line_number, column, result
+                        )
+                    }
+                    _ => match search_similar(&words.to_vec(), &target, 2) {
                         Some(result) => {
                             println!(
                                 "\x1b[0;31m{}\x1b[m => {}:{}:{} \x1b[0;32m{}\x1b",
                                 child, file_path, line_number, column, result
                             )
                         }
-                        _ => match search_similar(&words.to_vec(), &target, 2) {
-                            Some(result) => {
-                                println!(
-                                    "\x1b[0;31m{}\x1b[m => {}:{}:{} \x1b[0;32m{}\x1b",
-                                    child, file_path, line_number, column, result
-                                )
-                            }
-                            _ => println!(
-                                "\x1b[0;31m{}\x1b[m => {}:{}:{}",
-                                child, file_path, line_number, column
-                            ),
-                        },
-                    }
+                        _ => println!(
+                            "\x1b[0;31m{}\x1b[m => {}:{}:{}",
+                            child, file_path, line_number, column
+                        ),
+                    },
                 }
             }
         }
@@ -196,7 +194,7 @@ pub fn sanitize(word: String) -> String {
         .replace(",", "");
 }
 
-pub fn search_similar(words: &Vec<&str>, target: &str, score: usize) -> Option<String> {
+pub fn search_similar(words: &Vec<&String>, target: &str, score: usize) -> Option<String> {
     let mut result: String = String::new();
     let distance = if score == 2 { 0 } else { 1 };
     words

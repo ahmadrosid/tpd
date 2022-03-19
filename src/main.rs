@@ -96,7 +96,6 @@ fn main() {
     }
 }
 
-
 fn watch(file_path: &str, should_watch: bool, suggest: bool) -> notify::Result<()> {
     detector::detect_typo(Path::new(file_path).to_path_buf(), suggest);
     if !should_watch {

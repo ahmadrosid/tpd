@@ -2,9 +2,11 @@
 name = "tpd"
 version = "0.1.0"
 edition = "2021"
+description = "Detec typo for english words"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 home = "0.5.3"
 clap = { version = "3.0.13", features = ["derive"] }
+notify = "4"

@@ -120,6 +120,7 @@ fn watch(file_path: &str, should_watch: bool, suggest: bool) -> notify::Result<(
             | DebouncedEvent::Write(path)
             | DebouncedEvent::Create(path)
             | DebouncedEvent::Chmod(path) => {
+                print!("\x1B[2J");
                 println!("Processing file changes!");
                 detector::detect_typo(path, suggest)
             }
